@@ -46,6 +46,9 @@
 #
 # * Lint? UCL
 # * Implement? tests/get_07.cmd 'get --shellvars --keys --expand .|recurse'
+# * Use-cases? How is uclcmd used? Best practice?
+# * Ansible filter? ucl_query? Similar to json_query.
+# * Ansible filter? from_ucl? Similar to from_yaml.
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
