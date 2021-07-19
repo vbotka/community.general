@@ -114,7 +114,7 @@ from abc import ABCMeta, abstractmethod
 from time import sleep
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 class ServiceState:
@@ -159,7 +159,7 @@ class Plist:
         """Finds the plist file associated with a service"""
 
         launchd_paths = [
-            os.path.expanduser('~/Library/LaunchAgents'),
+            os.path.join(os.getenv('HOME'), 'Library/LaunchAgents'),
             '/Library/LaunchAgents',
             '/Library/LaunchDaemons',
             '/System/Library/LaunchAgents',

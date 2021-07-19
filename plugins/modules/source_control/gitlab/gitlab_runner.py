@@ -55,7 +55,7 @@ options:
   registration_token:
     description:
       - The registration token is used to register new runners.
-    required: True
+      - Required if I(state) is C(present).
     type: str
   owned:
     description:
@@ -77,7 +77,9 @@ options:
     type: bool
   access_level:
     description:
-      - Determines if a runner can pick up jobs from protected branches.
+      - Determines if a runner can pick up jobs only from protected branches.
+      - If set to C(ref_protected), runner can pick up jobs only from protected branches.
+      - If set to C(not_protected), runner can pick up jobs from both protected and unprotected branches.
     required: False
     default: ref_protected
     choices: ["ref_protected", "not_protected"]
@@ -99,6 +101,7 @@ options:
     required: False
     default: []
     type: list
+    elements: str
 '''
 
 EXAMPLES = '''
@@ -166,7 +169,7 @@ except Exception:
 
 from ansible.module_utils.api import basic_auth_argument_spec
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 from ansible_collections.community.general.plugins.module_utils.gitlab import gitlabAuthentication
 
@@ -304,12 +307,12 @@ def main():
         description=dict(type='str', required=True, aliases=["name"]),
         active=dict(type='bool', default=True),
         owned=dict(type='bool', default=False),
-        tag_list=dict(type='list', default=[]),
+        tag_list=dict(type='list', elements='str', default=[]),
         run_untagged=dict(type='bool', default=True),
         locked=dict(type='bool', default=False),
         access_level=dict(type='str', default='ref_protected', choices=["not_protected", "ref_protected"]),
         maximum_timeout=dict(type='int', default=3600),
-        registration_token=dict(type='str', required=True),
+        registration_token=dict(type='str', no_log=True),
         state=dict(type='str', default="present", choices=["absent", "present"]),
     ))
 
@@ -324,6 +327,9 @@ def main():
         ],
         required_one_of=[
             ['api_username', 'api_token'],
+        ],
+        required_if=[
+            ('state', 'present', ['registration_token']),
         ],
         supports_check_mode=True,
     )

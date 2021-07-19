@@ -19,24 +19,29 @@ options:
   repository:
     description:
       - Full name of the repository to configure a hook for
+    type: str
     required: true
     aliases:
       - repo
   user:
     description:
       - User to authenticate to GitHub as
+    type: str
     required: true
   password:
     description:
       - Password to authenticate to GitHub with
+    type: str
     required: false
   token:
     description:
       - Token to authenticate to GitHub with
+    type: str
     required: false
   github_url:
     description:
       - Base URL of the github api
+    type: str
     required: false
     default: https://api.github.com
 
@@ -89,7 +94,7 @@ except ImportError:
     HAS_GITHUB = False
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 def _munge_hook(hook_obj):
@@ -120,9 +125,6 @@ def main():
         mutually_exclusive=(('password', 'token'), ),
         required_one_of=(("password", "token"), ),
         supports_check_mode=True)
-    if module._name in ('github_webhook_facts', 'community.general.github_webhook_facts'):
-        module.deprecate("The 'github_webhook_facts' module has been renamed to 'github_webhook_info'",
-                         version='3.0.0', collection_name='community.general')  # was Ansible 2.13
 
     if not HAS_GITHUB:
         module.fail_json(msg=missing_required_lib('PyGithub'),

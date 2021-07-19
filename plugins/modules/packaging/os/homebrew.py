@@ -49,6 +49,7 @@ options:
     update_homebrew:
         description:
             - update homebrew itself first.
+            - Alias C(update-brew) has been deprecated and will be removed in community.general 5.0.0.
         type: bool
         default: no
         aliases: ['update-brew']
@@ -125,6 +126,11 @@ EXAMPLES = '''
     name: foo
     state: present
     install_options: with-baz,enable-debug
+
+- name: Install formula foo with 'brew' from cask
+  community.general.homebrew:
+    name: homebrew/cask/foo
+    state: present
 
 - name: Use ignored-pinned option while upgrading all
   community.general.homebrew:
@@ -888,6 +894,7 @@ def main():
                 default=False,
                 aliases=["update-brew"],
                 type='bool',
+                deprecated_aliases=[dict(name='update-brew', version='5.0.0', collection_name='community.general')],
             ),
             upgrade_all=dict(
                 default=False,

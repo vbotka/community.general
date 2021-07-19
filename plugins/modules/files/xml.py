@@ -66,6 +66,7 @@ options:
       or a hash where the key is an element name and the value is the element value.
     - This parameter requires C(xpath) to be set.
     type: list
+    elements: raw
   set_children:
     description:
     - Set the child-element(s) of a selected element for a given C(xpath).
@@ -73,6 +74,7 @@ options:
     - Child elements must be specified as in C(add_children).
     - This parameter requires C(xpath) to be set.
     type: list
+    elements: raw
   count:
     description:
     - Search for a given C(xpath) and provide the count of any matches.
@@ -283,6 +285,39 @@ EXAMPLES = r'''
       z: http://z.test
     attribute: z:my_namespaced_attribute
     value: 'false'
+
+- name: Adding building nodes with floor subnodes from a YAML variable
+  community.general.xml:
+    path: /foo/bar.xml
+    xpath: /business
+    add_children:
+      - building:
+          # Attributes
+          name: Scumm bar
+          location: Monkey island
+          # Subnodes
+          _:
+            - floor: Pirate hall
+            - floor: Grog storage
+            - construction_date: "1990"  # Only strings are valid
+      - building: Grog factory
+
+# Consider this XML for following example -
+#
+# <config>
+#   <element name="test1">
+#     <text>part to remove</text>
+#   </element>
+#   <element name="test2">
+#     <text>part to keep</text>
+#   </element>
+# </config>
+
+- name: Delete element node based upon attribute
+  community.general.xml:
+    path: bar.xml
+    xpath: /config/element[@name='test1']
+    state: absent
 '''
 
 RETURN = r'''
@@ -334,7 +369,7 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule, json_dict_bytes_to_unicode, missing_required_lib
 from ansible.module_utils.six import iteritems, string_types
-from ansible.module_utils._text import to_bytes, to_native
+from ansible.module_utils.common.text.converters import to_bytes, to_native
 from ansible.module_utils.common._collections_compat import MutableMapping
 
 _IDENT = r"[a-zA-Z-][a-zA-Z0-9_\-\.]*"
@@ -809,8 +844,8 @@ def main():
             state=dict(type='str', default='present', choices=['absent', 'present'], aliases=['ensure']),
             value=dict(type='raw'),
             attribute=dict(type='raw'),
-            add_children=dict(type='list'),
-            set_children=dict(type='list'),
+            add_children=dict(type='list', elements='raw'),
+            set_children=dict(type='list', elements='raw'),
             count=dict(type='bool', default=False),
             print_match=dict(type='bool', default=False),
             pretty_print=dict(type='bool', default=False),

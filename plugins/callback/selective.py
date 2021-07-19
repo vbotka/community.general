@@ -40,8 +40,17 @@ import difflib
 
 from ansible import constants as C
 from ansible.plugins.callback import CallbackBase
-from ansible.module_utils._text import to_text
-from ansible.utils.color import codeCodes
+from ansible.module_utils.common.text.converters import to_text
+
+try:
+    codeCodes = C.COLOR_CODES
+except AttributeError:
+    # This constant was moved to ansible.constants in
+    # https://github.com/ansible/ansible/commit/1202dd000f10b0e8959019484f1c3b3f9628fc67
+    # (will be included in ansible-core 2.11.0). For older Ansible/ansible-base versions,
+    # we include from the original location.
+    from ansible.utils.color import codeCodes
+
 
 DONT_COLORIZE = False
 COLORS = {
@@ -58,7 +67,7 @@ COLORS = {
 
 def dict_diff(prv, nxt):
     """Return a dict of keys that differ with another config object."""
-    keys = set(prv.keys() + nxt.keys())
+    keys = set(list(prv.keys()) + list(nxt.keys()))
     result = {}
     for k in keys:
         if prv.get(k) != nxt.get(k):

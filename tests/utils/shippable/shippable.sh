@@ -73,20 +73,36 @@ else
     export ANSIBLE_COLLECTIONS_PATHS="${PWD}/../../../"
 fi
 
+if [ "${test}" == "sanity/extra" ]; then
+    retry pip install junit-xml --disable-pip-version-check
+fi
+
 # START: HACK install dependencies
 if [ "${script}" != "sanity" ] || [ "${test}" == "sanity/extra" ]; then
     # Nothing further should be added to this list.
     # This is to prevent modules or plugins in this collection having a runtime dependency on other collections.
-    retry ansible-galaxy -vvv collection install community.internal_test_tools
+    retry git clone --depth=1 --single-branch https://github.com/ansible-collections/community.internal_test_tools.git "${ANSIBLE_COLLECTIONS_PATHS}/ansible_collections/community/internal_test_tools"
+    # NOTE: we're installing with git to work around Galaxy being a huge PITA (https://github.com/ansible/galaxy/issues/2429)
+    # retry ansible-galaxy -vvv collection install community.internal_test_tools
 fi
 
 if [ "${script}" != "sanity" ] && [ "${script}" != "units" ]; then
     # To prevent Python dependencies on other collections only install other collections for integration tests
-    retry ansible-galaxy -vvv collection install ansible.posix
-    retry ansible-galaxy -vvv collection install community.crypto
+    retry git clone --depth=1 --single-branch https://github.com/ansible-collections/ansible.posix.git "${ANSIBLE_COLLECTIONS_PATHS}/ansible_collections/ansible/posix"
+    retry git clone --depth=1 --single-branch https://github.com/ansible-collections/community.crypto.git "${ANSIBLE_COLLECTIONS_PATHS}/ansible_collections/community/crypto"
+    # NOTE: we're installing with git to work around Galaxy being a huge PITA (https://github.com/ansible/galaxy/issues/2429)
+    # retry ansible-galaxy -vvv collection install ansible.posix
+    # retry ansible-galaxy -vvv collection install community.crypto
 fi
 
 # END: HACK
+
+if [ "${script}" != "sanity" ] && [ "${script}" != "units" ]; then
+    # Adds meta/runtime.yml redirects for all modules before running integration tests.
+    # This ensures that ansible-base and ansible-core will use the "real" modules instead of the
+    # symbolic links, which results in coverage to be reported correctly.
+    "${ANSIBLE_COLLECTIONS_PATHS}/ansible_collections/community/internal_test_tools/tools/meta_runtime.py" redirect --target both --flatmap
+fi
 
 export PYTHONIOENCODING='utf-8'
 
@@ -176,7 +192,7 @@ function cleanup
                     flags="${flags//=/,}"
                     flags="${flags//[^a-zA-Z0-9_,]/_}"
 
-                    bash <(curl -s https://codecov.io/bash) \
+                    bash <(curl -s https://ansible-ci-files.s3.us-east-1.amazonaws.com/codecov/codecov.sh) \
                         -f "${file}" \
                         -F "${flags}" \
                         -n "${test}" \

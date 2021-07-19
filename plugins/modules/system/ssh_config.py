@@ -157,7 +157,7 @@ except ImportError:
     STORM_IMP_ERR = traceback.format_exc()
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 class SSHConfig():
@@ -208,6 +208,8 @@ class SSHConfig():
         hosts_change_diff = []
         hosts_removed = []
         hosts_added = []
+
+        hosts_result = [host for host in hosts_result if host['host'] == self.host]
 
         if hosts_result:
             for host in hosts_result:

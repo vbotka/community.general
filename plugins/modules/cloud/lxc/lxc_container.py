@@ -433,7 +433,7 @@ else:
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.parsing.convert_bool import BOOLEANS_FALSE, BOOLEANS_TRUE
 from ansible.module_utils.six.moves import xrange
-from ansible.module_utils._text import to_text, to_bytes
+from ansible.module_utils.common.text.converters import to_text, to_bytes
 
 
 # LXC_COMPRESSION_MAP is a map of available compression types when creating
@@ -730,7 +730,7 @@ class LxcContainerManagement(object):
             for option_line in container_config:
                 # Look for key in config
                 if keyre.match(option_line):
-                    _, _value = option_line.split('=', 1)
+                    dummy, _value = option_line.split('=', 1)
                     config_value = ' '.join(_value.split())
                     line_index = container_config.index(option_line)
                     # If the sanitized values don't match replace them
@@ -953,7 +953,7 @@ class LxcContainerManagement(object):
         """
 
         self.container = self.get_container_bind()
-        for _ in xrange(timeout):
+        for dummy in xrange(timeout):
             if self._get_state() != 'running':
                 self.container.start()
                 self.state_change = True
@@ -1006,7 +1006,7 @@ class LxcContainerManagement(object):
         :type timeout: ``int``
         """
 
-        for _ in xrange(timeout):
+        for dummy in xrange(timeout):
             if not self._container_exists(container_name=self.container_name, lxc_path=self.lxc_path):
                 break
 
@@ -1662,7 +1662,7 @@ def main():
             ),
             backing_store=dict(
                 type='str',
-                choices=LXC_BACKING_STORE.keys(),
+                choices=list(LXC_BACKING_STORE.keys()),
                 default='dir'
             ),
             template_options=dict(
@@ -1699,7 +1699,7 @@ def main():
                 type='path'
             ),
             state=dict(
-                choices=LXC_ANSIBLE_STATES.keys(),
+                choices=list(LXC_ANSIBLE_STATES.keys()),
                 default='started'
             ),
             container_command=dict(
@@ -1733,7 +1733,7 @@ def main():
                 type='path',
             ),
             archive_compression=dict(
-                choices=LXC_COMPRESSION_MAP.keys(),
+                choices=list(LXC_COMPRESSION_MAP.keys()),
                 default='gzip'
             )
         ),

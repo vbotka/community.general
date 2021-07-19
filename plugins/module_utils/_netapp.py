@@ -41,7 +41,7 @@ from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 from ansible.module_utils.six.moves.urllib.error import HTTPError, URLError
 from ansible.module_utils.urls import open_url
 from ansible.module_utils.api import basic_auth_argument_spec
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 try:
     from ansible.module_utils.ansible_release import __version__ as ansible_version
@@ -142,8 +142,8 @@ def aws_cvs_host_argument_spec():
     return dict(
         api_url=dict(required=True, type='str'),
         validate_certs=dict(required=False, type='bool', default=True),
-        api_key=dict(required=True, type='str'),
-        secret_key=dict(required=True, type='str')
+        api_key=dict(required=True, type='str', no_log=True),
+        secret_key=dict(required=True, type='str', no_log=True)
     )
 
 

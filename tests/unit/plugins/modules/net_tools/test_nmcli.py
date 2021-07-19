@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible_collections.community.general.plugins.modules.net_tools import nmcli
 
 pytestmark = pytest.mark.usefixtures('patch_ansible_module')
@@ -95,8 +95,13 @@ connection.autoconnect:                 yes
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 """
 
 TESTCASE_GENERIC_DNS4_SEARCH = [
@@ -120,10 +125,15 @@ connection.autoconnect:                 yes
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
 ipv4.dns-search:                        search.redhat.com
+ipv4.may-fail:                          yes
 ipv6.dns-search:                        search6.redhat.com
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 """
 
 TESTCASE_GENERIC_ZONE = [
@@ -147,8 +157,13 @@ connection.zone:                        external
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 """
 
 TESTCASE_BOND = [
@@ -172,8 +187,13 @@ connection.autoconnect:                 yes
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 bond.options:                           mode=active-backup,primary=non_existent_primary
 """
 
@@ -184,6 +204,7 @@ TESTCASE_BRIDGE = [
         'ifname': 'br0_non_existant',
         'ip4': '10.10.10.10/24',
         'gw4': '10.10.10.1',
+        'mac': '52:54:00:ab:cd:ef',
         'maxage': 100,
         'stp': True,
         'state': 'present',
@@ -198,8 +219,14 @@ connection.autoconnect:                 yes
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
+bridge.mac-address:                     52:54:00:AB:CD:EF
 bridge.stp:                             yes
 bridge.max-age:                         100
 bridge.ageing-time:                     300
@@ -223,10 +250,67 @@ TESTCASE_BRIDGE_SLAVE_SHOW_OUTPUT = """\
 connection.id:                          non_existent_nw_device
 connection.interface-name:              br0_non_existant
 connection.autoconnect:                 yes
+connection.slave-type:                  bridge
 ipv4.never-default:                     no
 bridge-port.path-cost:                  100
 bridge-port.hairpin-mode:               yes
 bridge-port.priority:                   32
+"""
+
+TESTCASE_TEAM = [
+    {
+        'type': 'team',
+        'conn_name': 'non_existent_nw_device',
+        'ifname': 'team0_non_existant',
+        'state': 'present',
+        '_ansible_check_mode': False,
+    }
+]
+
+TESTCASE_TEAM_SHOW_OUTPUT = """\
+connection.id:                          non_existent_nw_device
+connection.interface-name:              team0_non_existant
+connection.autoconnect:                 yes
+connection.type:                        team
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
+ipv4.never-default:                     no
+ipv4.may-fail:                          yes
+ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
+team.runner:                            roundrobin
+"""
+
+TESTCASE_TEAM_HWADDR_POLICY_FAILS = [
+    {
+        'type': 'team',
+        'conn_name': 'non_existent_nw_device',
+        'ifname': 'team0_non_existant',
+        'runner_hwaddr_policy': 'by_active',
+        'state': 'present',
+        '_ansible_check_mode': False,
+    }
+]
+
+TESTCASE_TEAM_SLAVE = [
+    {
+        'type': 'team-slave',
+        'conn_name': 'non_existent_nw_slaved_device',
+        'ifname': 'generic_slaved_non_existant',
+        'master': 'team0_non_existant',
+        'state': 'present',
+        '_ansible_check_mode': False,
+    }
+]
+
+TESTCASE_TEAM_SLAVE_SHOW_OUTPUT = """\
+connection.id:                          non_existent_nw_slaved_device
+connection.interface-name:              generic_slaved_non_existant
+connection.autoconnect:                 yes
+connection.master:                      team0_non_existant
+connection.slave-type:                  team
+802-3-ethernet.mtu:                     auto
 """
 
 TESTCASE_VLAN = [
@@ -249,8 +333,13 @@ connection.autoconnect:                 yes
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 vlan.id:                                10
 """
 
@@ -340,8 +429,13 @@ connection.autoconnect:                 yes
 802-3-ethernet.mtu:                     auto
 ipv4.method:                            auto
 ipv4.dhcp-client-id:                    00:11:22:AA:BB:CC:DD
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 """
 
 TESTCASE_ETHERNET_STATIC = [
@@ -365,9 +459,14 @@ connection.autoconnect:                 yes
 ipv4.method:                            manual
 ipv4.addresses:                         10.10.10.10/24
 ipv4.gateway:                           10.10.10.1
+ipv4.ignore-auto-dns:                   no
+ipv4.ignore-auto-routes:                no
 ipv4.never-default:                     no
+ipv4.may-fail:                          yes
 ipv4.dns:                               1.1.1.1,8.8.8.8
 ipv6.method:                            auto
+ipv6.ignore-auto-dns:                   no
+ipv6.ignore-auto-routes:                no
 """
 
 
@@ -450,6 +549,20 @@ def mocked_bridge_slave_unchanged(mocker):
     mocker_set(mocker,
                connection_exists=True,
                execute_return=(0, TESTCASE_BRIDGE_SLAVE_SHOW_OUTPUT, ""))
+
+
+@pytest.fixture
+def mocked_team_connection_unchanged(mocker):
+    mocker_set(mocker,
+               connection_exists=True,
+               execute_return=(0, TESTCASE_TEAM_SHOW_OUTPUT, ""))
+
+
+@pytest.fixture
+def mocked_team_slave_connection_unchanged(mocker):
+    mocker_set(mocker,
+               connection_exists=True,
+               execute_return=(0, TESTCASE_TEAM_SLAVE_SHOW_OUTPUT, ""))
 
 
 @pytest.fixture
@@ -899,6 +1012,107 @@ def test_mod_bridge_slave(mocked_generic_connection_modify, capfd):
 def test_bridge_slave_unchanged(mocked_bridge_slave_unchanged, capfd):
     """
     Test : Bridge-slave connection unchanged
+    """
+    with pytest.raises(SystemExit):
+        nmcli.main()
+
+    out, err = capfd.readouterr()
+    results = json.loads(out)
+    assert not results.get('failed')
+    assert not results['changed']
+
+
+@pytest.mark.parametrize('patch_ansible_module', TESTCASE_TEAM, indirect=['patch_ansible_module'])
+def test_team_connection_create(mocked_generic_connection_create, capfd):
+    """
+    Test : Team connection created
+    """
+    with pytest.raises(SystemExit):
+        nmcli.main()
+
+    assert nmcli.Nmcli.execute_command.call_count == 1
+    arg_list = nmcli.Nmcli.execute_command.call_args_list
+    args, kwargs = arg_list[0]
+
+    assert args[0][0] == '/usr/bin/nmcli'
+    assert args[0][1] == 'con'
+    assert args[0][2] == 'add'
+    assert args[0][3] == 'type'
+    assert args[0][4] == 'team'
+    assert args[0][5] == 'con-name'
+    assert args[0][6] == 'non_existent_nw_device'
+
+    for param in ['connection.autoconnect', 'connection.interface-name', 'team0_non_existant']:
+        assert param in args[0]
+
+    out, err = capfd.readouterr()
+    results = json.loads(out)
+    assert not results.get('failed')
+    assert results['changed']
+
+
+@pytest.mark.parametrize('patch_ansible_module', TESTCASE_TEAM, indirect=['patch_ansible_module'])
+def test_team_connection_unchanged(mocked_team_connection_unchanged, capfd):
+    """
+    Test : Team connection unchanged
+    """
+    with pytest.raises(SystemExit):
+        nmcli.main()
+
+    out, err = capfd.readouterr()
+    results = json.loads(out)
+    assert not results.get('failed')
+    assert not results['changed']
+
+
+@pytest.mark.parametrize('patch_ansible_module', TESTCASE_TEAM_HWADDR_POLICY_FAILS, indirect=['patch_ansible_module'])
+def test_team_connection_create_hwaddr_policy_fails(mocked_generic_connection_create, capfd):
+    """
+    Test : Team connection created
+    """
+    with pytest.raises(SystemExit):
+        nmcli.main()
+
+    out, err = capfd.readouterr()
+    results = json.loads(out)
+    assert results.get('failed')
+    assert results['msg'] == "Runner-hwaddr-policy is only allowed for runner activebackup"
+
+
+@pytest.mark.parametrize('patch_ansible_module', TESTCASE_TEAM_SLAVE, indirect=['patch_ansible_module'])
+def test_create_team_slave(mocked_generic_connection_create, capfd):
+    """
+    Test if Team_slave created
+    """
+
+    with pytest.raises(SystemExit):
+        nmcli.main()
+
+    assert nmcli.Nmcli.execute_command.call_count == 1
+    arg_list = nmcli.Nmcli.execute_command.call_args_list
+    args, kwargs = arg_list[0]
+
+    assert args[0][0] == '/usr/bin/nmcli'
+    assert args[0][1] == 'con'
+    assert args[0][2] == 'add'
+    assert args[0][3] == 'type'
+    assert args[0][4] == 'team-slave'
+    assert args[0][5] == 'con-name'
+    assert args[0][6] == 'non_existent_nw_slaved_device'
+
+    for param in ['connection.autoconnect', 'connection.interface-name', 'connection.master', 'team0_non_existant', 'connection.slave-type']:
+        assert param in args[0]
+
+    out, err = capfd.readouterr()
+    results = json.loads(out)
+    assert not results.get('failed')
+    assert results['changed']
+
+
+@pytest.mark.parametrize('patch_ansible_module', TESTCASE_TEAM_SLAVE, indirect=['patch_ansible_module'])
+def test_team_slave_connection_unchanged(mocked_team_slave_connection_unchanged, capfd):
+    """
+    Test : Team slave connection unchanged
     """
     with pytest.raises(SystemExit):
         nmcli.main()

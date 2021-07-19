@@ -82,6 +82,12 @@ options:
     type: bool
     default: no
     version_added: 2.0.0
+  no_bin_links:
+    description:
+      - Use the C(--no-bin-links) flag when installing.
+    type: bool
+    default: no
+    version_added: 2.5.0
 requirements:
     - npm installed in bin path (recommended /usr/local/bin)
 '''
@@ -135,7 +141,7 @@ import os
 import re
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 class Npm(object):
@@ -151,6 +157,7 @@ class Npm(object):
         self.unsafe_perm = kwargs['unsafe_perm']
         self.state = kwargs['state']
         self.no_optional = kwargs['no_optional']
+        self.no_bin_links = kwargs['no_bin_links']
 
         if kwargs['executable']:
             self.executable = kwargs['executable'].split(' ')
@@ -174,13 +181,15 @@ class Npm(object):
                 cmd.append('--ignore-scripts')
             if self.unsafe_perm:
                 cmd.append('--unsafe-perm')
-            if self.name and add_package_name:
+            if self.name_version and add_package_name:
                 cmd.append(self.name_version)
             if self.registry:
                 cmd.append('--registry')
                 cmd.append(self.registry)
             if self.no_optional:
                 cmd.append('--no-optional')
+            if self.no_bin_links:
+                cmd.append('--no-bin-links')
 
             # If path is specified, cd into that path and run the command.
             cwd = None
@@ -206,14 +215,18 @@ class Npm(object):
         except (getattr(json, 'JSONDecodeError', ValueError)) as e:
             self.module.fail_json(msg="Failed to parse NPM output with error %s" % to_native(e))
         if 'dependencies' in data:
-            for dep in data['dependencies']:
-                if 'missing' in data['dependencies'][dep] and data['dependencies'][dep]['missing']:
+            for dep, props in data['dependencies'].items():
+
+                if 'missing' in props and props['missing']:
                     missing.append(dep)
-                elif 'invalid' in data['dependencies'][dep] and data['dependencies'][dep]['invalid']:
+                elif 'invalid' in props and props['invalid']:
                     missing.append(dep)
                 else:
                     installed.append(dep)
-            if self.name and self.name not in installed:
+                    if 'version' in props and props['version']:
+                        dep_version = dep + '@' + str(props['version'])
+                        installed.append(dep_version)
+            if self.name_version and self.name_version not in installed:
                 missing.append(self.name)
         # Named dependency not installed
         else:
@@ -259,6 +272,7 @@ def main():
         unsafe_perm=dict(default=False, type='bool'),
         ci=dict(default=False, type='bool'),
         no_optional=dict(default=False, type='bool'),
+        no_bin_links=dict(default=False, type='bool'),
     )
     arg_spec['global'] = dict(default=False, type='bool')
     module = AnsibleModule(
@@ -278,6 +292,7 @@ def main():
     unsafe_perm = module.params['unsafe_perm']
     ci = module.params['ci']
     no_optional = module.params['no_optional']
+    no_bin_links = module.params['no_bin_links']
 
     if not path and not glbl:
         module.fail_json(msg='path must be specified when not using global')
@@ -286,7 +301,7 @@ def main():
 
     npm = Npm(module, name=name, path=path, version=version, glbl=glbl, production=production,
               executable=executable, registry=registry, ignore_scripts=ignore_scripts,
-              unsafe_perm=unsafe_perm, state=state, no_optional=no_optional)
+              unsafe_perm=unsafe_perm, state=state, no_optional=no_optional, no_bin_links=no_bin_links)
 
     changed = False
     if ci:

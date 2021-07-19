@@ -274,7 +274,7 @@ import time
 import traceback
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 class DeployHelper(object):
@@ -407,6 +407,9 @@ class DeployHelper(object):
 
     def remove_unfinished_link(self, path):
         changed = False
+
+        if not self.release:
+            return changed
 
         tmp_link_name = os.path.join(path, self.release + '.' + self.unfinished_filename)
         if not self.module.check_mode and os.path.exists(tmp_link_name):

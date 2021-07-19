@@ -49,6 +49,7 @@ options:
     description:
     - Update homebrew itself first.
     - Note that C(brew cask update) is a synonym for C(brew update).
+    - Alias C(update-brew) has been deprecated and will be removed in community.general 5.0.0.
     type: bool
     default: no
     aliases: [ 'update-brew' ]
@@ -141,7 +142,7 @@ import re
 import tempfile
 from distutils import version
 
-from ansible.module_utils._text import to_bytes
+from ansible.module_utils.common.text.converters import to_bytes
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.six import iteritems, string_types
 
@@ -800,6 +801,7 @@ def main():
                 default=False,
                 aliases=["update-brew"],
                 type='bool',
+                deprecated_aliases=[dict(name='update-brew', version='5.0.0', collection_name='community.general')],
             ),
             install_options=dict(
                 default=None,

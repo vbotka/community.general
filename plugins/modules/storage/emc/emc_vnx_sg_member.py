@@ -29,10 +29,12 @@ options:
         description:
             - Name of the Storage group to manage.
         required: true
+        type: str
     lunid:
         description:
             - Lun id to be added.
         required: true
+        type: int
     state:
         description:
         - Indicates the desired lunid state.
@@ -40,6 +42,7 @@ options:
         - C(absent) ensures specified lunid is absent from Storage Group.
         default: present
         choices: [ "present", "absent"]
+        type: str
 
 
 author:
@@ -76,7 +79,7 @@ hluid:
 import traceback
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.community.general.plugins.module_utils.storage.emc.emc_vnx import emc_vnx_argument_spec
 
 LIB_IMP_ERR = None

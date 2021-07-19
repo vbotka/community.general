@@ -11,6 +11,10 @@ DOCUMENTATION = '''
 ---
 module: nios_nsgroup
 short_description: Configure InfoBlox DNS Nameserver Groups
+deprecated:
+    why: Please install the infoblox.nios_modules collection and use the corresponding module from it.
+    alternative: infoblox.nios_modules.nios_nsgroup
+    removed_in: 5.0.0
 extends_documentation_fragment:
 - community.general.nios
 
@@ -398,7 +402,7 @@ def main():
         address=dict(required=True),
         name=dict(required=True),
         stealth=dict(type='bool', default=False),
-        tsig_key=dict(),
+        tsig_key=dict(no_log=True),
         tsig_key_alg=dict(choices=['HMAC-MD5', 'HMAC-SHA256'], default='HMAC-MD5'),
         tsig_key_name=dict(required=True)
     )

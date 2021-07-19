@@ -35,6 +35,7 @@ options:
     description:
       - Public SSH keys allowing access to the virtual machine.
     type: list
+    elements: str
   datacenter:
     description:
       - The datacenter to provision this virtual machine.
@@ -70,6 +71,7 @@ options:
     description:
       - list of instance ids, currently only used when state='absent' to remove instances.
     type: list
+    elements: str
   count:
     description:
       - The number of virtual machines to create.
@@ -196,7 +198,7 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.six.moves import xrange
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 LOCATIONS = ['us/las',
@@ -581,12 +583,12 @@ def main():
             volume_size=dict(type='int', default=10),
             disk_type=dict(choices=['HDD', 'SSD'], default='HDD'),
             image_password=dict(default=None, no_log=True),
-            ssh_keys=dict(type='list', default=[]),
+            ssh_keys=dict(type='list', elements='str', default=[], no_log=False),
             bus=dict(choices=['VIRTIO', 'IDE'], default='VIRTIO'),
             lan=dict(type='int', default=1),
             count=dict(type='int', default=1),
             auto_increment=dict(type='bool', default=True),
-            instance_ids=dict(type='list', default=[]),
+            instance_ids=dict(type='list', elements='str', default=[]),
             subscription_user=dict(),
             subscription_password=dict(no_log=True),
             location=dict(choices=LOCATIONS, default='us/las'),

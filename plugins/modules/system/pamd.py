@@ -16,7 +16,9 @@ short_description: Manage PAM Modules
 description:
   - Edit PAM service's type, control, module path and module arguments.
   - In order for a PAM rule to be modified, the type, control and
-    module_path must match an existing rule.  See man(5) pam.d for details.
+    module_path must match an existing rule. See man(5) pam.d for details.
+notes:
+  - This module does not handle authselect profiles.
 options:
   name:
     description:
@@ -731,14 +733,19 @@ class PamdService(object):
         lines = []
         current_line = self._head
 
+        mark = "# Updated by Ansible - %s" % datetime.now().isoformat()
         while current_line is not None:
             lines.append(str(current_line))
             current_line = current_line.next
 
-        if lines[1].startswith("# Updated by Ansible"):
-            lines.pop(1)
-
-        lines.insert(1, "# Updated by Ansible - " + datetime.now().isoformat())
+        if len(lines) <= 1:
+            lines.insert(0, "")
+            lines.insert(1, mark)
+        else:
+            if lines[1].startswith("# Updated by Ansible"):
+                lines[1] = mark
+            else:
+                lines.insert(1, mark)
 
         return '\n'.join(lines) + '\n'
 

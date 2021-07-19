@@ -145,7 +145,7 @@ import re
 import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_bytes
+from ansible.module_utils.common.text.converters import to_bytes
 
 
 def lineDict(line):
@@ -385,7 +385,7 @@ def main():
         changed, lines = setInterfaceOption(module, lines, iface, option, value, state, address_family)
 
     if changed:
-        _, ifaces = read_interfaces_lines(module, [d['line'] for d in lines if 'line' in d])
+        dummy, ifaces = read_interfaces_lines(module, [d['line'] for d in lines if 'line' in d])
 
     if changed and not module.check_mode:
         if backup:

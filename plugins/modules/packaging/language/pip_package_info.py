@@ -20,6 +20,7 @@ options:
     default: ['pip']
     required: False
     type: list
+    elements: path
 requirements:
     - The requested pip executables must be installed on the target.
 author:
@@ -88,7 +89,7 @@ packages:
 import json
 import os
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.facts.packages import CLIMgr
 
@@ -115,7 +116,11 @@ def main():
 
     # start work
     global module
-    module = AnsibleModule(argument_spec=dict(clients={'type': 'list', 'default': ['pip']},), supports_check_mode=True)
+    module = AnsibleModule(
+        argument_spec=dict(
+            clients=dict(type='list', elements='path', default=['pip']),
+        ),
+        supports_check_mode=True)
     packages = {}
     results = {'packages': {}}
     clients = module.params['clients']

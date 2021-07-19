@@ -56,7 +56,7 @@ import os
 from subprocess import Popen, PIPE
 
 from ansible.errors import AnsibleParserError
-from ansible.module_utils._text import to_bytes, to_native, to_text
+from ansible.module_utils.common.text.converters import to_bytes, to_native, to_text
 from ansible.module_utils.common._collections_compat import MutableMapping
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable, Cacheable
 from ansible.module_utils.common.process import get_bin_path
@@ -216,7 +216,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
                     yield host not in v
             yield True
 
-        return all([found_host for found_host in find_host(host, inventory)])
+        return all(find_host(host, inventory))
 
     def verify_file(self, path):
 

@@ -6,8 +6,8 @@ __metaclass__ = type
 
 import json
 from ansible.module_utils.urls import open_url
-from ansible.module_utils._text import to_native
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_native
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.six.moves import http_client
 from ansible.module_utils.six.moves.urllib.error import URLError, HTTPError
 from ansible.module_utils.six.moves.urllib.parse import urlparse
@@ -19,11 +19,10 @@ PATCH_HEADERS = {'content-type': 'application/json', 'accept': 'application/json
                  'OData-Version': '4.0'}
 DELETE_HEADERS = {'accept': 'application/json', 'OData-Version': '4.0'}
 
-DEPRECATE_MSG = 'Issuing a data modification command without specifying the '\
-                'ID of the target %(resource)s resource when there is more '\
-                'than one %(resource)s will use the first one in the '\
-                'collection. Use the `resource_id` option to specify the '\
-                'target %(resource)s ID'
+FAIL_MSG = 'Issuing a data modification command without specifying the '\
+           'ID of the target %(resource)s resource when there is more '\
+           'than one %(resource)s is no longer allowed. Use the `resource_id` '\
+           'option to specify the target %(resource)s ID.'
 
 
 class RedfishUtils(object):
@@ -39,13 +38,34 @@ class RedfishUtils(object):
         self.data_modification = data_modification
         self._init_session()
 
+    def _auth_params(self, headers):
+        """
+        Return tuple of required authentication params based on the presence
+        of a token in the self.creds dict. If using a token, set the
+        X-Auth-Token header in the `headers` param.
+
+        :param headers: dict containing headers to send in request
+        :return: tuple of username, password and force_basic_auth
+        """
+        if self.creds.get('token'):
+            username = None
+            password = None
+            force_basic_auth = False
+            headers['X-Auth-Token'] = self.creds['token']
+        else:
+            username = self.creds['user']
+            password = self.creds['pswd']
+            force_basic_auth = True
+        return username, password, force_basic_auth
+
     # The following functions are to send GET/POST/PATCH/DELETE requests
     def get_request(self, uri):
+        req_headers = dict(GET_HEADERS)
+        username, password, basic_auth = self._auth_params(req_headers)
         try:
-            resp = open_url(uri, method="GET", headers=GET_HEADERS,
-                            url_username=self.creds['user'],
-                            url_password=self.creds['pswd'],
-                            force_basic_auth=True, validate_certs=False,
+            resp = open_url(uri, method="GET", headers=req_headers,
+                            url_username=username, url_password=password,
+                            force_basic_auth=basic_auth, validate_certs=False,
                             follow_redirects='all',
                             use_proxy=True, timeout=self.timeout)
             data = json.loads(to_native(resp.read()))
@@ -66,14 +86,16 @@ class RedfishUtils(object):
         return {'ret': True, 'data': data, 'headers': headers}
 
     def post_request(self, uri, pyld):
+        req_headers = dict(POST_HEADERS)
+        username, password, basic_auth = self._auth_params(req_headers)
         try:
             resp = open_url(uri, data=json.dumps(pyld),
-                            headers=POST_HEADERS, method="POST",
-                            url_username=self.creds['user'],
-                            url_password=self.creds['pswd'],
-                            force_basic_auth=True, validate_certs=False,
+                            headers=req_headers, method="POST",
+                            url_username=username, url_password=password,
+                            force_basic_auth=basic_auth, validate_certs=False,
                             follow_redirects='all',
                             use_proxy=True, timeout=self.timeout)
+            headers = dict((k.lower(), v) for (k, v) in resp.info().items())
         except HTTPError as e:
             msg = self._get_extended_message(e)
             return {'ret': False,
@@ -87,10 +109,10 @@ class RedfishUtils(object):
         except Exception as e:
             return {'ret': False,
                     'msg': "Failed POST request to '%s': '%s'" % (uri, to_text(e))}
-        return {'ret': True, 'resp': resp}
+        return {'ret': True, 'headers': headers, 'resp': resp}
 
     def patch_request(self, uri, pyld):
-        headers = PATCH_HEADERS
+        req_headers = dict(PATCH_HEADERS)
         r = self.get_request(uri)
         if r['ret']:
             # Get etag from etag header or @odata.etag property
@@ -98,15 +120,13 @@ class RedfishUtils(object):
             if not etag:
                 etag = r['data'].get('@odata.etag')
             if etag:
-                # Make copy of headers and add If-Match header
-                headers = dict(headers)
-                headers['If-Match'] = etag
+                req_headers['If-Match'] = etag
+        username, password, basic_auth = self._auth_params(req_headers)
         try:
             resp = open_url(uri, data=json.dumps(pyld),
-                            headers=headers, method="PATCH",
-                            url_username=self.creds['user'],
-                            url_password=self.creds['pswd'],
-                            force_basic_auth=True, validate_certs=False,
+                            headers=req_headers, method="PATCH",
+                            url_username=username, url_password=password,
+                            force_basic_auth=basic_auth, validate_certs=False,
                             follow_redirects='all',
                             use_proxy=True, timeout=self.timeout)
         except HTTPError as e:
@@ -125,13 +145,14 @@ class RedfishUtils(object):
         return {'ret': True, 'resp': resp}
 
     def delete_request(self, uri, pyld=None):
+        req_headers = dict(DELETE_HEADERS)
+        username, password, basic_auth = self._auth_params(req_headers)
         try:
             data = json.dumps(pyld) if pyld else None
             resp = open_url(uri, data=data,
-                            headers=DELETE_HEADERS, method="DELETE",
-                            url_username=self.creds['user'],
-                            url_password=self.creds['pswd'],
-                            force_basic_auth=True, validate_certs=False,
+                            headers=req_headers, method="DELETE",
+                            url_username=username, url_password=password,
+                            force_basic_auth=basic_auth, validate_certs=False,
                             follow_redirects='all',
                             use_proxy=True, timeout=self.timeout)
         except HTTPError as e:
@@ -245,8 +266,7 @@ class RedfishUtils(object):
                         'ret': False,
                         'msg': "System resource %s not found" % self.resource_id}
             elif len(self.systems_uris) > 1:
-                self.module.deprecate(DEPRECATE_MSG % {'resource': 'System'},
-                                      version='3.0.0', collection_name='community.general')  # was Ansible 2.14
+                self.module.fail_json(msg=FAIL_MSG % {'resource': 'System'})
         return {'ret': True}
 
     def _find_updateservice_resource(self):
@@ -296,8 +316,7 @@ class RedfishUtils(object):
                         'ret': False,
                         'msg': "Chassis resource %s not found" % self.resource_id}
             elif len(self.chassis_uris) > 1:
-                self.module.deprecate(DEPRECATE_MSG % {'resource': 'Chassis'},
-                                      version='3.0.0', collection_name='community.general')  # was Ansible 2.14
+                self.module.fail_json(msg=FAIL_MSG % {'resource': 'Chassis'})
         return {'ret': True}
 
     def _find_managers_resource(self):
@@ -326,8 +345,7 @@ class RedfishUtils(object):
                         'ret': False,
                         'msg': "Manager resource %s not found" % self.resource_id}
             elif len(self.manager_uris) > 1:
-                self.module.deprecate(DEPRECATE_MSG % {'resource': 'Manager'},
-                                      version='3.0.0', collection_name='community.general')  # was Ansible 2.14
+                self.module.fail_json(msg=FAIL_MSG % {'resource': 'Manager'})
         return {'ret': True}
 
     def _get_all_action_info_values(self, action):
@@ -1196,6 +1214,54 @@ class RedfishUtils(object):
 
         return {'ret': True, 'changed': True, 'msg': "Clear all sessions successfully"}
 
+    def create_session(self):
+        if not self.creds.get('user') or not self.creds.get('pswd'):
+            return {'ret': False, 'msg':
+                    'Must provide the username and password parameters for '
+                    'the CreateSession command'}
+
+        payload = {
+            'UserName': self.creds['user'],
+            'Password': self.creds['pswd']
+        }
+        response = self.post_request(self.root_uri + self.sessions_uri, payload)
+        if response['ret'] is False:
+            return response
+
+        headers = response['headers']
+        if 'x-auth-token' not in headers:
+            return {'ret': False, 'msg':
+                    'The service did not return the X-Auth-Token header in '
+                    'the response from the Sessions collection POST'}
+
+        if 'location' not in headers:
+            self.module.warn(
+                'The service did not return the Location header for the '
+                'session URL in the response from the Sessions collection '
+                'POST')
+            session_uri = None
+        else:
+            session_uri = urlparse(headers.get('location')).path
+
+        session = dict()
+        session['token'] = headers.get('x-auth-token')
+        session['uri'] = session_uri
+        return {'ret': True, 'changed': True, 'session': session,
+                'msg': 'Session created successfully'}
+
+    def delete_session(self, session_uri):
+        if not session_uri:
+            return {'ret': False, 'msg':
+                    'Must provide the session_uri parameter for the '
+                    'DeleteSession command'}
+
+        response = self.delete_request(self.root_uri + session_uri)
+        if response['ret'] is False:
+            return response
+
+        return {'ret': True, 'changed': True,
+                'msg': 'Session deleted successfully'}
+
     def get_firmware_update_capabilities(self):
         result = {}
         response = self.get_request(self.root_uri + self.update_uri)
@@ -1516,13 +1582,14 @@ class RedfishUtils(object):
 
         boot = data[key]
 
-        annotation = 'BootSourceOverrideTarget@Redfish.AllowableValues'
-        if annotation in boot:
-            allowable_values = boot[annotation]
-            if isinstance(allowable_values, list) and bootdevice not in allowable_values:
-                return {'ret': False,
-                        'msg': "Boot device %s not in list of allowable values (%s)" %
-                               (bootdevice, allowable_values)}
+        if override_enabled != 'Disabled':
+            annotation = 'BootSourceOverrideTarget@Redfish.AllowableValues'
+            if annotation in boot:
+                allowable_values = boot[annotation]
+                if isinstance(allowable_values, list) and bootdevice not in allowable_values:
+                    return {'ret': False,
+                            'msg': "Boot device %s not in list of allowable values (%s)" %
+                                   (bootdevice, allowable_values)}
 
         # read existing values
         cur_enabled = boot.get('BootSourceOverrideEnabled')
@@ -1605,19 +1672,31 @@ class RedfishUtils(object):
 
         # Make a copy of the attributes dict
         attrs_to_patch = dict(attributes)
+        # List to hold attributes not found
+        attrs_bad = {}
 
         # Check the attributes
-        for attr in attributes:
-            if attr not in data[u'Attributes']:
-                return {'ret': False, 'msg': "BIOS attribute %s not found" % attr}
+        for attr_name, attr_value in attributes.items():
+            # Check if attribute exists
+            if attr_name not in data[u'Attributes']:
+                # Remove and proceed to next attribute if this isn't valid
+                attrs_bad.update({attr_name: attr_value})
+                del attrs_to_patch[attr_name]
+                continue
+
             # If already set to requested value, remove it from PATCH payload
-            if data[u'Attributes'][attr] == attributes[attr]:
-                del attrs_to_patch[attr]
+            if data[u'Attributes'][attr_name] == attributes[attr_name]:
+                del attrs_to_patch[attr_name]
+
+        warning = ""
+        if attrs_bad:
+            warning = "Incorrect attributes %s" % (attrs_bad)
 
         # Return success w/ changed=False if no attrs need to be changed
         if not attrs_to_patch:
             return {'ret': True, 'changed': False,
-                    'msg': "BIOS attributes already set"}
+                    'msg': "BIOS attributes already set",
+                    'warning': warning}
 
         # Get the SettingsObject URI
         set_bios_attr_uri = data["@Redfish.Settings"]["SettingsObject"]["@odata.id"]
@@ -1627,7 +1706,9 @@ class RedfishUtils(object):
         response = self.patch_request(self.root_uri + set_bios_attr_uri, payload)
         if response['ret'] is False:
             return response
-        return {'ret': True, 'changed': True, 'msg': "Modified BIOS attribute"}
+        return {'ret': True, 'changed': True,
+                'msg': "Modified BIOS attributes %s" % (attrs_to_patch),
+                'warning': warning}
 
     def set_boot_order(self, boot_list):
         if not boot_list:
@@ -2632,7 +2713,7 @@ class RedfishUtils(object):
             if response['ret'] is False:
                 return response
             data = response['data']
-            if '"' + nic_addr + '"' in str(data) or "'" + nic_addr + "'" in str(data):
+            if '"' + nic_addr.lower() + '"' in str(data).lower() or "'" + nic_addr.lower() + "'" in str(data).lower():
                 target_ethernet_uri = uri
                 target_ethernet_current_setting = data
                 break
@@ -2676,6 +2757,10 @@ class RedfishUtils(object):
                         need_change = True
             # type is list
             if isinstance(set_value, list):
+                if len(set_value) != len(cur_value):
+                    # if arrays are not the same len, no need to check each element
+                    need_change = True
+                    continue
                 for i in range(len(set_value)):
                     for subprop in payload[property][i].keys():
                         if subprop not in target_ethernet_current_setting[property][i]:

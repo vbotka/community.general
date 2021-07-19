@@ -256,9 +256,6 @@ result:
         frontend_cookie:
             description: Frontend cookie name
             type: str
-        frontend_cookie_secret:
-            description: Frontend cookie secret
-            type: str
         frontend_form:
             description: Frontend authentication form name
             type: str
@@ -310,7 +307,7 @@ result:
 """
 
 from ansible_collections.community.general.plugins.module_utils.utm_utils import UTM, UTMModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 
 def main():
@@ -336,7 +333,7 @@ def main():
             backend_user_suffix=dict(type='str', required=False, default=""),
             comment=dict(type='str', required=False, default=""),
             frontend_cookie=dict(type='str', required=False),
-            frontend_cookie_secret=dict(type='str', required=False),
+            frontend_cookie_secret=dict(type='str', required=False, no_log=True),
             frontend_form=dict(type='str', required=False),
             frontend_form_template=dict(type='str', required=False, default=""),
             frontend_login=dict(type='str', required=False),

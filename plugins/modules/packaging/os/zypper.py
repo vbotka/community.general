@@ -216,7 +216,7 @@ EXAMPLES = '''
 import xml
 import re
 from xml.dom.minidom import parseString as parseXML
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 # import module snippets
 from ansible.module_utils.basic import AnsibleModule
@@ -336,7 +336,7 @@ def get_cmd(m, subcommand):
     "puts together the basic zypper command arguments with those passed to the module"
     is_install = subcommand in ['install', 'update', 'patch', 'dist-upgrade']
     is_refresh = subcommand == 'refresh'
-    cmd = ['/usr/bin/zypper', '--quiet', '--non-interactive', '--xmlout']
+    cmd = [m.get_bin_path('zypper', required=True), '--quiet', '--non-interactive', '--xmlout']
     if m.params['extra_args_precommand']:
         args_list = m.params['extra_args_precommand'].split()
         cmd.extend(args_list)

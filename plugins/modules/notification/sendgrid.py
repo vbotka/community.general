@@ -44,6 +44,7 @@ options:
     required: true
   to_addresses:
     type: list
+    elements: str
     description:
       - A list with one or more recipient email addresses.
     required: true
@@ -58,14 +59,17 @@ options:
       - Sendgrid API key to use instead of username/password.
   cc:
     type: list
+    elements: str
     description:
       - A list of email addresses to cc.
   bcc:
     type: list
+    elements: str
     description:
       - A list of email addresses to bcc.
   attachments:
     type: list
+    elements: path
     description:
       - A list of relative or explicit paths of files you want to attach (7MB limit as per SendGrid docs).
   from_name:
@@ -132,7 +136,7 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 from ansible.module_utils.six.moves.urllib.parse import urlencode
-from ansible.module_utils._text import to_bytes
+from ansible.module_utils.common.text.converters import to_bytes
 from ansible.module_utils.urls import fetch_url
 
 
@@ -209,16 +213,16 @@ def main():
             username=dict(required=False),
             password=dict(required=False, no_log=True),
             api_key=dict(required=False, no_log=True),
-            bcc=dict(required=False, type='list'),
-            cc=dict(required=False, type='list'),
+            bcc=dict(required=False, type='list', elements='str'),
+            cc=dict(required=False, type='list', elements='str'),
             headers=dict(required=False, type='dict'),
             from_address=dict(required=True),
             from_name=dict(required=False),
-            to_addresses=dict(required=True, type='list'),
+            to_addresses=dict(required=True, type='list', elements='str'),
             subject=dict(required=True),
             body=dict(required=True),
             html_body=dict(required=False, default=False, type='bool'),
-            attachments=dict(required=False, type='list')
+            attachments=dict(required=False, type='list', elements='path')
         ),
         supports_check_mode=True,
         mutually_exclusive=[

@@ -109,6 +109,11 @@ options:
     required: false
     default: false
     version_added: "2.0.0"
+  username:
+    description:
+      - Used to create a personal project under a user's name.
+    type: str
+    version_added: "3.3.0"
 '''
 
 EXAMPLES = r'''
@@ -181,7 +186,7 @@ except Exception:
 
 from ansible.module_utils.api import basic_auth_argument_spec
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 from ansible_collections.community.general.plugins.module_utils.gitlab import findGroup, findProject, gitlabAuthentication
 
@@ -302,6 +307,7 @@ def main():
         import_url=dict(type='str'),
         state=dict(type='str', default="present", choices=["absent", "present"]),
         lfs_enabled=dict(default=False, type='bool'),
+        username=dict(type='str'),
     ))
 
     module = AnsibleModule(
@@ -309,6 +315,7 @@ def main():
         mutually_exclusive=[
             ['api_username', 'api_token'],
             ['api_password', 'api_token'],
+            ['group', 'username'],
         ],
         required_together=[
             ['api_username', 'api_password'],
@@ -332,6 +339,7 @@ def main():
     import_url = module.params['import_url']
     state = module.params['state']
     lfs_enabled = module.params['lfs_enabled']
+    username = module.params['username']
 
     if not HAS_GITLAB_PACKAGE:
         module.fail_json(msg=missing_required_lib("python-gitlab"), exception=GITLAB_IMP_ERR)
@@ -345,22 +353,25 @@ def main():
     gitlab_project = GitLabProject(module, gitlab_instance)
 
     namespace = None
-    user_group_id = None
+    namespace_id = None
     if group_identifier:
         group = findGroup(gitlab_instance, group_identifier)
         if group is None:
             module.fail_json(msg="Failed to create project: group %s doesn't exists" % group_identifier)
 
-        user_group_id = group.id
+        namespace_id = group.id
     else:
-        user = gitlab_instance.users.list(username=gitlab_instance.user.username)[0]
-        user_group_id = user.id
+        if username:
+            namespace = gitlab_instance.namespaces.list(search=username)[0]
+        else:
+            namespace = gitlab_instance.namespaces.list(search=gitlab_instance.user.username)[0]
+        namespace_id = namespace.id
 
-    if not user_group_id:
-        module.fail_json(msg="Failed to find the user/group id which required to find namespace")
+    if not namespace_id:
+        module.fail_json(msg="Failed to find the namespace or group ID which is required to look up the namespace")
 
     try:
-        namespace = gitlab_instance.namespaces.get(user_group_id)
+        namespace = gitlab_instance.namespaces.get(namespace_id)
     except gitlab.exceptions.GitlabGetError as e:
         module.fail_json(msg="Failed to find the namespace for the given user: %s" % to_native(e))
 

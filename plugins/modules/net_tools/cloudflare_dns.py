@@ -360,7 +360,7 @@ import json
 
 from ansible.module_utils.basic import AnsibleModule, env_fallback
 from ansible.module_utils.six.moves.urllib.parse import urlencode
-from ansible.module_utils._text import to_native, to_text
+from ansible.module_utils.common.text.converters import to_native, to_text
 from ansible.module_utils.urls import fetch_url
 
 
@@ -800,7 +800,7 @@ def main():
             algorithm=dict(type='int'),
             cert_usage=dict(type='int', choices=[0, 1, 2, 3]),
             hash_type=dict(type='int', choices=[1, 2]),
-            key_tag=dict(type='int'),
+            key_tag=dict(type='int', no_log=False),
             port=dict(type='int'),
             priority=dict(type='int', default=1),
             proto=dict(type='str'),
