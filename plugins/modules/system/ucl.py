@@ -45,6 +45,7 @@
 # QUESTIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 # * Lint? UCL
+# * Are uclcmd options *--input* and *UCL* mutually exclusive?
 # * Implement? tests/get_07.cmd 'get --shellvars --keys --expand .|recurse'
 # * Use-cases? How is uclcmd used? Best practice?
 # * Ansible filter? ucl_query? Similar to json_query.
@@ -52,10 +53,8 @@
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-
-from __future__ import absolute_import, division, print_function
+from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-
 
 DOCUMENTATION = r'''
 ---
@@ -69,65 +68,65 @@ description:
   - A CRUD-like interface to managing UCL files.
 
 options:
-  path:
-    description:
-      - Path to the file to operate on.
-      - This file must exist ahead of time.
-      - This parameter is required.
-    type: path
-    aliases: [ dest, file ]
-  upath:
-    description:
-    - The key of the variable in object notation.
-    type: str
-    aliases: [ variable, key ]
-  ipath:
-    description:
-    - File as additional input for combining or merging.
-    type: path
-  value:
-    description:
-      - Desired value of the selected variable.
-      - Either a string, or to unset a value, the Python C(None) keyword (YAML Equivalent, C(null)).
-    type: raw
-  merge:
-    description:
-      - Whether the value should be merged.
-    type: bool
-    default: no
-  state:
-    description:
-      - Desired state of the selected variable. Whether the variable should be there or not.
-    type: str
-    choices: [ absent, present ]
-    default: present
-    aliases: [ ensure ]
-  delimiter:
-    description:
-      - Character to use as element delimiter.
-    type: str
-    default: .
-  format:
-    description:
-      - Output format
-    type: str
-    choices: [ ucl, yaml, json, cjson, msgpack, shellvars ]
-    default: ucl
+    path:
+        description:
+            - Path to the file to operate on.
+            - This file must exist ahead of time.
+            - This parameter is required.
+        type: path
+        aliases: [ dest, file ]
+    upath:
+        description:
+            - The key of the variable in object notation.
+        type: str
+        aliases: [ variable, key ]
+    ipath:
+        description:
+           - File as additional input for combining or merging.
+        type: path
+    value:
+        description:
+            - Desired value of the selected variable.
+            - Either a string, or to unset a value, the Python C(None) keyword (YAML Equivalent, C(null)).
+        type: raw
+    merge:
+        description:
+            - Whether the value should be merged.
+        type: bool
+        default: no
+    state:
+        description:
+            - Desired state of the selected variable. Whether the variable should be there or not.
+        type: str
+        choices: [ absent, present ]
+        default: present
+        aliases: [ ensure ]
+    delimiter:
+        description:
+            - Character to use as element delimiter.
+        type: str
+        default: .
+    format:
+        description:
+            - Output format
+        type: str
+        choices: [ ucl, yaml, json, cjson, msgpack, shellvars ]
+        default: ucl
 requirements:
-  - uclcmd >= 0.1_3
-  - libucl >= 0.8.1
+    - uclcmd >= 0.1_3
+    - libucl >= 0.8.1
 notes:
-  - Supports C(check_mode).
+    - Supports C(check_mode).
 seealso:
-  - name: FreeBSD Universal Configuration Language
-    description: Wiki
-    link: https://wiki.freebsd.org/UniversalConfigurationLanguage
-  - name: Source code devel/uclcmd
-    description: Command line tool for working with UCL config files.
-    link: https://github.com/allanjude/uclcmd
-  - name: Source code libucl
-    description: UCL library
-    link: https://github.com/vstakhov/libucl/
+    - name: FreeBSD Universal Configuration Language
+      description: Wiki
+      link: https://wiki.freebsd.org/UniversalConfigurationLanguage
+    - name: Source code devel/uclcmd
+      description: Command line tool for working with UCL config files.
+      link: https://github.com/allanjude/uclcmd
+    - name: Source code libucl
+      description: UCL library
+      link: https://github.com/vstakhov/libucl/
 author: "Vladimir Botka (@vbotka)"
 '''
 
@@ -173,7 +172,7 @@ EXAMPLES = r'''
 RETURN = r'''
 cmd:
     description: uclcmd command
-    returned: success
+    returned: always
     type: str
     sample: /usr/local/bin/uclcmd remove --ucl --delimiter . --noop -f /tests/set.in rootkey.subkey.child
 rc:
@@ -185,23 +184,34 @@ stdout:
     description: Standard output from the command
     returned: success
     type: str
-    sample:
+    sample: TODO
 stderr:
+    description: Standard error from the command
+    returned: failure
+    type: str
+    sample: TODO
 message:
-diff: []
+    description: Messge
+    returned: optional
+    type: str
+    sample: TODO
+diff:
+    description: Changes
+    returned: When changed
+    type: list
+    sample: TODO
 '''
 
-import os
+import difflib
 
 from ansible.module_utils.basic import AnsibleModule, json_dict_bytes_to_unicode
-from ansible.module_utils._text import to_bytes
 
 def get_value(module, uclcmd_path, options, path, upath):
     """ Get value of upath """
 
     changed = False
     msg = ''
-    cmd = "%s get %s -f %s %s" % (uclcmd_path, options, path, upath)
+    cmd = "%s get %s -f %s %s" % (uclcmd_path, options['run'], path, upath)
     rc, out, err = module.run_command(cmd)
     return (changed, cmd, rc, out, err, msg)
 
@@ -211,19 +221,21 @@ def set_value(module, uclcmd_path, options, path, upath, merge, value, ipath):
 
     changed = False
     msg = ''
+    diff = dict(before='', after='')
+
     if merge:
         if value:
-            cmd = "%s merge %s -f %s %s %s" % (uclcmd_path, options, path, upath, value)
+            cmd = "%s merge %s -f %s %s %s" % (uclcmd_path, options['run'], path, upath, value)
         elif ipath:
-            cmd = "%s merge %s -f %s -i %s %s" % (uclcmd_path, options, path, ipath, upath)
+            cmd = "%s merge %s -f %s -i %s %s" % (uclcmd_path, options['run'], path, ipath, upath)
     else:
         if value:
-            cmd = "%s set %s -f %s %s %s" % (uclcmd_path, options, path, upath, value)
+            cmd = "%s set %s -f %s %s %s" % (uclcmd_path, options['run'], path, upath, value)
         elif ipath:
-            cmd = "%s set %s -f %s -i %s %s" % (uclcmd_path, options, path, ipath, upath)
+            cmd = "%s set %s -f %s -i %s %s" % (uclcmd_path, options['run'], path, ipath, upath)
 
     rc, out, err = module.run_command(cmd)
-    return (changed, cmd, rc, out, err, msg)
+    return (changed, cmd, rc, out, err, msg, diff)
 
 
 def remove_upath(module, uclcmd_path, options, path, upath):
@@ -231,65 +243,47 @@ def remove_upath(module, uclcmd_path, options, path, upath):
 
     changed = False
     msg = ''
-    b_dest = to_bytes(path, errors='surrogate_or_strict')
-    if not os.path.exists(b_dest):
-        module.exit_json(changed=False, msg="file not present")
 
-    diff = {'before': '',
-            'after': '',
-            'before_header': '%s (content)' % path,
-            'after_header': '%s (content)' % path}
-    # There is no stdout from the *uclcmd* command wihtout --noop if
-    # *set* or *merge*
-    # TODO: diff shall be available for *ansible-playbook --diff*
-    if module.check_mode and module._diff:
-        with open(b_dest, 'rb') as f:
-            diff['before'] = f.read()
-        
-    cmd = "%s remove %s -f %s %s" % (uclcmd_path, options, path, upath)
+    # Record changes
+    diff = dict(before='', after='', ndiff='')
+    cmd = "%s get -u -f %s %s" % (uclcmd_path, path, ".")
     rc, out, err = module.run_command(cmd)
+    diff['before'] = out.splitlines()
+    cmd = "%s remove -n -u -f %s %s" % (uclcmd_path, path, upath)
+    rc, out, err = module.run_command(cmd)
+    diff['after'] = out.splitlines()
+    difference = difflib.ndiff(diff['before'], diff['after'])
+    diff['ndiff'] = ('\n'.join(difference)).splitlines()
+    changed = len(diff['before']) != len(diff['after'])
 
-    if module.check_mode and module._diff:
-        diff['after'] = out
-    attr_diff = {}
-    attr_diff['before_header'] = '%s (file attributes)' % path
-    attr_diff['after_header'] = '%s (file attributes)' % path
-    difflist = [diff, attr_diff]
-    msg, changed = check_file_attrs(module, changed, msg, attr_diff)
+    # Remove upath from path
+    if not module.check_mode:
+        cmd = "%s remove %s -f %s -o %s %s" % (uclcmd_path, options, path, path, upath)
+        rc, out, err = module.run_command(cmd)
 
-    return (changed, cmd, rc, out, err, msg, difflist)
+    return (changed, cmd, rc, out, err, msg, diff)
 
 
-def check_file_attrs(module, changed, message, diff):
-    
-    file_args = module.load_file_common_arguments(module.params)
-    if module.set_fs_attributes_if_different(file_args, False, diff=diff):
-        if changed:
-            message += " and "
-        changed = True
-        message += "ownership, perms or SE linux context changed"
+def run_module():
+    module_args = dict(
+        path=dict(type='path', aliases=['dest', 'file']),
+        upath=dict(type='str', aliases=['variable', 'key']),
+        ipath=dict(type='str'),
+        value=dict(type='raw'),
+        merge=dict(type='bool', default=False),
+        state=dict(type='str', default='present', choices=['absent', 'present'], aliases=['ensure']),
+        delimiter=dict(type='str', default='.'),
+        format=dict(type='str', default='ucl'),
+        )
 
-    return (message, changed)
-    
+    r = dict(changed=False, cmd='', rc=None, stdout='', stderr='', message='', diff=dict())
 
-def main():
     module = AnsibleModule(
-        argument_spec=dict(
-            path=dict(type='path', aliases=['dest', 'file']),
-            upath=dict(type='str', aliases=['variable', 'key']),
-            ipath=dict(type='str'),
-            value=dict(type='raw'),
-            merge=dict(type='bool', default=False),
-            state=dict(type='str', default='present', choices=['absent', 'present'], aliases=['ensure']),
-            delimiter=dict(type='str', default='.'),
-            format=dict(type='str', default='ucl'),
-        ),
+        argument_spec=module_args,
+        add_file_common_args=True,
         supports_check_mode=True,
-        mutually_exclusive=[
-            ['path', 'uclstring'],
-            ['value', 'ipath'],
-        ],
-    )
+        mutually_exclusive=[['value', 'ipath'],]
+        )
 
     uclcmd_path = module.get_bin_path('uclcmd', True)
 
@@ -304,10 +298,6 @@ def main():
     format = p['format']
 
     options = '--%s --delimiter %s' % (format, delimiter)
-    if module.check_mode or module._diff:
-        options += " --noop"
-
-    r = {'changed': False, 'cmd': '', 'rc': None, 'stdout': '', 'stderr': '', 'message': '', 'diff': []}
 
     # Set value if either *value* or *ipath* is defined
     if state == 'present' and (value or ipath):
@@ -316,7 +306,7 @@ def main():
 
     # Get value if neither *value* nor *ipath* is defined
     elif state == 'present':
-        r['changed'], r['cmd'], r['rc'], r['stdout'], r['stderr'], r['message'] = \
+        r['changed'], r['cmd'], r['rc'], r['stdout'], r['stderr'], r['message'], r['diff'] = \
         get_value(module, uclcmd_path, options, path, upath)
 
     # Remove *upath*
@@ -325,6 +315,10 @@ def main():
         remove_upath(module, uclcmd_path, options, path, upath)
 
     module.exit_json(**r)
+
+
+def main():
+    run_module()
 
 
 if __name__ == '__main__':
